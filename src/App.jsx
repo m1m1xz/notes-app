@@ -1,96 +1,79 @@
 import { useState, useEffect } from 'react';
 import './index.css';
 
-const STORAGE_KEY = 'bw-notes';
-
-const readStoredNotes = () => {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return [];
-    }
-
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) return [];
-
-    const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
 function App() {
-  const [notes, setNotes] = useState(readStoredNotes);
+  // Load saved notes from localStorage on initial render
+  const [notes, setNotes] = useState(() => {
+    const saved = localStorage.getItem('bw-notes');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [editingId, setEditingId] = useState(null);
 
+  // Save notes to localStorage whenever the notes array changes
   useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-      }
-    } catch {
-      // Ignore localStorage quota or browser-blocked errors.
-    }
+    localStorage.setItem('bw-notes', JSON.stringify(notes));
   }, [notes]);
 
+  // Handle Add or Update Note
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) return;
 
-    const trimmedTitle = title.trim();
-    const trimmedContent = content.trim();
-
-    if (editingId !== null) {
-      setNotes((currentNotes) =>
-        currentNotes.map((note) =>
-          note.id === editingId ? { ...note, title: trimmedTitle, content: trimmedContent } : note
+    if (editingId) {
+      // Update existing note
+      setNotes(
+        notes.map((note) =>
+          note.id === editingId ? { ...note, title, content } : note
         )
       );
       setEditingId(null);
     } else {
+      // Add new note
       const newNote = {
         id: Date.now(),
-        title: trimmedTitle,
-        content: trimmedContent,
+        title,
+        content,
         date: new Date().toLocaleDateString('en-IN'),
       };
-      setNotes((currentNotes) => [newNote, ...currentNotes]);
+      setNotes([newNote, ...notes]);
     }
 
+    // Clear input fields
     setTitle('');
     setContent('');
   };
 
+  // Populate form for editing
   const handleEdit = (note) => {
     setEditingId(note.id);
     setTitle(note.title);
     setContent(note.content);
   };
 
+  // Cancel editing
   const handleCancelEdit = () => {
     setEditingId(null);
     setTitle('');
     setContent('');
   };
 
+  // Delete a note
   const handleDelete = (id) => {
-    setNotes((currentNotes) => currentNotes.filter((note) => note.id !== id));
-    if (editingId === id) {
-      handleCancelEdit();
-    }
+    setNotes(notes.filter((note) => note.id !== id));
+    if (editingId === id) handleCancelEdit();
   };
 
   return (
     <div className="container">
       <header>
         <h1>Notes</h1>
-        <p>
-          {notes.length} {notes.length === 1 ? 'note' : 'notes'}
-        </p>
+        <p>{notes.length} {notes.length === 1 ? 'note' : 'notes'}</p>
       </header>
 
+      {/* Form to Add or Update Notes */}
       <form onSubmit={handleSubmit} className="note-form">
         <input
           type="text"
@@ -108,9 +91,9 @@ function App() {
         />
         <div className="form-actions">
           <button type="submit" className="btn-primary">
-            {editingId !== null ? 'Update Note' : 'Add Note'}
+            {editingId ? 'Update Note' : 'Add Note'}
           </button>
-          {editingId !== null && (
+          {editingId && (
             <button
               type="button"
               className="btn-secondary"
@@ -122,6 +105,7 @@ function App() {
         </div>
       </form>
 
+      {/* Display Notes List */}
       <div className="notes-grid">
         {notes.length === 0 ? (
           <p className="empty-message">No notes yet. Add one above.</p>
@@ -134,10 +118,16 @@ function App() {
               </div>
               <p className="note-content">{note.content}</p>
               <div className="note-actions">
-                <button onClick={() => handleEdit(note)} className="btn-outline">
+                <button
+                  onClick={() => handleEdit(note)}
+                  className="btn-outline"
+                >
                   Edit
                 </button>
-                <button onClick={() => handleDelete(note.id)} className="btn-outline">
+                <button
+                  onClick={() => handleDelete(note.id)}
+                  className="btn-outline"
+                >
                   Delete
                 </button>
               </div>
